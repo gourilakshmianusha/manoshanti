@@ -31,14 +31,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
     } else {
       document.title = "PsychLab Report Generator";
     }
-    return () => {
-      document.title = "PsychLab Report Generator";
-    };
   }, [currentReport]);
 
   const handleGenerate = async () => {
     if (!patient.name || !patient.age) {
-      alert("Please provide the Patient Name and Age at minimum.");
+      alert("Please enter the patient's name and age.");
       return;
     }
 
@@ -56,18 +53,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
       setCurrentReport(newReport);
       setReportHistory(prev => [newReport, ...prev]);
     } catch (err: any) {
-      console.error("Detailed Generation Error:", err);
-      
-      let errorMsg = "Failed to generate report.";
-      if (err.message?.includes("API_KEY")) {
-        errorMsg += " API Key is missing or invalid. If running locally, ensure process.env.API_KEY is defined.";
-      } else if (err.message?.includes("safety")) {
-        errorMsg += " The content was flagged by safety filters. Try rephrasing the observations.";
-      } else {
-        errorMsg += " Please check your internet connection or console for more details.";
-      }
-      
-      alert(errorMsg);
+      console.error("Generation failed:", err);
+      alert("Failed to generate report. Please verify your clinical data or check your network connection.");
     } finally {
       setIsGenerating(false);
     }
@@ -80,7 +67,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
 
   const handleDownloadWord = () => {
     if (!currentReport) return;
-
     const safeName = currentReport.patient.name.replace(/\s+/g, '_');
     const filename = `Report_${safeName}_${currentReport.testType}.doc`;
     
@@ -89,42 +75,33 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
       <head><meta charset='utf-8'><title>${currentReport.testType} Report</title>
       <style>
         body { font-family: 'Arial', sans-serif; line-height: 1.6; padding: 40px; }
-        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
-        .patient-info { background: #f4f4f4; padding: 15px; border: 1px solid #ddd; margin-bottom: 20px; }
-        h1 { font-size: 24pt; margin-bottom: 5px; }
-        h2 { font-size: 18pt; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 25px; }
-        h3 { font-size: 14pt; color: #34495e; margin-top: 15px; }
+        h1 { font-size: 24pt; color: #1e40af; text-align: center; }
+        h2 { font-size: 18pt; color: #1e3a8a; border-bottom: 1px solid #ddd; margin-top: 20px; }
         p { margin-bottom: 10px; }
-        .summary { font-style: italic; background: #eef7ff; padding: 10px; border-left: 4px solid #3498db; }
+        .summary-box { background: #f0f7ff; padding: 15px; border-left: 5px solid #3b82f6; margin: 20px 0; font-style: italic; }
       </style>
       </head>
       <body>
-        <div class="header">
-          <h1>PSYCHOLOGICAL ASSESSMENT LABORATORY</h1>
-          <p>Department of Clinical Psychology & Neurodevelopment</p>
-        </div>
-        
-        <div class="patient-info">
-          <p><strong>Patient Name:</strong> ${currentReport.patient.name}</p>
-          <p><strong>Age/Gender:</strong> ${currentReport.patient.age} / ${currentReport.patient.gender}</p>
-          <p><strong>Assessment Tool:</strong> ${currentReport.testType}</p>
-          <p><strong>Date:</strong> ${currentReport.date}</p>
-        </div>
-
+        <h1>PSYCHOLOGICAL ASSESSMENT LABORATORY</h1>
+        <p style="text-align:center; color:#666;">Department of Clinical Psychology & Neurodevelopment</p>
+        <hr/>
+        <table style="width:100%; margin-bottom: 20px;">
+          <tr>
+            <td><strong>Patient:</strong> ${currentReport.patient.name}</td>
+            <td><strong>Date:</strong> ${currentReport.date}</td>
+          </tr>
+          <tr>
+            <td><strong>Age/Gender:</strong> ${currentReport.patient.age} / ${currentReport.patient.gender}</td>
+            <td><strong>Tool:</strong> ${currentReport.testType}</td>
+          </tr>
+        </table>
         <h2>EXECUTIVE SUMMARY</h2>
-        <div class="summary">${currentReport.summary}</div>
-
-        ${currentReport.fullReport.split('\n').map(line => {
-          if (line.startsWith('# ')) return `<h1>${line.substring(2)}</h1>`;
-          if (line.startsWith('## ')) return `<h2>${line.substring(3)}</h2>`;
-          if (line.startsWith('### ')) return `<h3>${line.substring(4)}</h3>`;
-          if (line.trim() === '') return '<br/>';
-          return `<p>${line}</p>`;
-        }).join('')}
-
-        <div style="margin-top: 50px; border-top: 1px solid #000; padding-top: 10px;">
-          <p><strong>Authorized Signatory</strong></p>
-          <p>Clinical Neuropsychologist</p>
+        <div class="summary-box">${currentReport.summary}</div>
+        <h2>CLINICAL FINDINGS & INTERPRETATION</h2>
+        <div>${currentReport.fullReport.replace(/\n/g, '<br/>')}</div>
+        <div style="margin-top: 60px;">
+          <p>__________________________</p>
+          <p><strong>Authorized Signatory</strong><br/>Clinical Neuropsychologist</p>
         </div>
       </body>
       </html>
@@ -138,19 +115,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const resetForm = () => {
-    setPatient({
-      name: '',
-      age: '',
-      gender: 'Male',
-      referralReason: '',
-      clinicalObservations: '',
-      testScores: ''
-    });
-    setCurrentReport(null);
   };
 
   return (
@@ -265,7 +229,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
 
               <div className="flex gap-2 pt-2">
                 <button
-                  onClick={resetForm}
+                  onClick={() => setPatient({name:'', age:'', gender:'Male', referralReason:'', clinicalObservations:'', testScores:''})}
                   className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg transition"
                 >
                   Clear
@@ -296,9 +260,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
               <History className="text-gray-400" size={18} />
               <h2 className="font-semibold text-gray-800">Recent Reports</h2>
             </div>
-            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 text-sm">
               {reportHistory.length === 0 ? (
-                <p className="text-sm text-gray-400 italic">No reports generated yet.</p>
+                <p className="text-gray-400 italic">No reports generated yet.</p>
               ) : (
                 reportHistory.map(report => (
                   <button
@@ -306,7 +270,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
                     onClick={() => setCurrentReport(report)}
                     className="w-full text-left p-3 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition"
                   >
-                    <div className="font-medium text-sm text-gray-900">{report.patient.name}</div>
+                    <div className="font-medium text-gray-900">{report.patient.name}</div>
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
                       <span>{report.testType}</span>
                       <span>{report.date}</span>
@@ -332,7 +296,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
               <Loader2 className="animate-spin text-blue-500 mb-6" size={48} />
               <h3 className="text-xl font-semibold text-gray-800">Generating Clinical Report</h3>
               <p className="max-w-md mt-4 text-gray-600 leading-relaxed">
-                Gemini Pro is performing a deep analysis of the clinical observations and scores for {patient.name}...
+                The analysis engine is processing scores and observations for {patient.name}...
               </p>
             </div>
           ) : (
@@ -341,7 +305,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
                 <div className="flex items-center gap-2">
                   <CheckCircle className="text-green-500" size={18} />
                   <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
-                    Clinical Draft Finalized
+                    Draft Ready
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -350,74 +314,67 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
                     className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition flex items-center gap-2 text-sm shadow-sm"
                   >
                     <FileDown size={18} />
-                    Download Word (.doc)
+                    Word
                   </button>
                   <button 
                     onClick={handlePrintPDF}
                     className="bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 font-medium px-4 py-2 rounded-lg transition flex items-center gap-2 text-sm"
                   >
                     <Printer size={18} />
-                    Save as PDF
+                    PDF
                   </button>
                 </div>
               </div>
 
               <div id="report-content" className="p-10 md:p-16 space-y-8 bg-white">
-                <div className="text-center pb-8 border-b-2 border-blue-100 relative">
-                  <div className="absolute top-0 left-0 text-gray-300 pointer-events-none uppercase tracking-[0.2em] font-black text-4xl opacity-5 transform -rotate-12 translate-y-12">
-                    CONFIDENTIAL CLINICAL RECORD
-                  </div>
+                <div className="text-center pb-8 border-b-2 border-blue-100">
                   <h1 className="text-3xl font-serif font-bold text-gray-900 uppercase">PSYCHOLOGICAL ASSESSMENT LABORATORY</h1>
-                  <p className="text-sm text-gray-500 mt-1 italic font-medium">Department of Clinical Psychology & Neurodevelopment</p>
+                  <p className="text-sm text-gray-500 mt-1 italic font-medium">Department of Clinical Psychology</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-y-4 bg-gray-50 p-6 rounded-xl border border-gray-100">
+                <div className="grid grid-cols-2 gap-y-4 bg-gray-50 p-6 rounded-xl border border-gray-100 text-sm">
                   <div>
-                    <span className="block text-xs font-bold text-gray-400 uppercase mb-0.5">Patient Name</span>
-                    <span className="text-lg font-bold text-gray-800">{currentReport?.patient.name}</span>
+                    <span className="block text-xs font-bold text-gray-400 uppercase">Patient Name</span>
+                    <span className="font-bold text-gray-800">{currentReport?.patient.name}</span>
                   </div>
                   <div>
-                    <span className="block text-xs font-bold text-gray-400 uppercase mb-0.5">Date of Report</span>
-                    <span className="text-lg font-medium text-gray-800">{currentReport?.date}</span>
+                    <span className="block text-xs font-bold text-gray-400 uppercase">Date of Report</span>
+                    <span className="text-gray-800">{currentReport?.date}</span>
                   </div>
                   <div>
-                    <span className="block text-xs font-bold text-gray-400 uppercase mb-0.5">Age / Gender</span>
-                    <span className="text-lg font-medium text-gray-800">{currentReport?.patient.age} / {currentReport?.patient.gender}</span>
+                    <span className="block text-xs font-bold text-gray-400 uppercase">Age / Gender</span>
+                    <span className="text-gray-800">{currentReport?.patient.age} / {currentReport?.patient.gender}</span>
                   </div>
                   <div>
-                    <span className="block text-xs font-bold text-gray-400 uppercase mb-0.5">Assessment Tool</span>
-                    <span className="text-lg font-bold text-blue-700">{currentReport?.testType}</span>
+                    <span className="block text-xs font-bold text-gray-400 uppercase">Assessment Tool</span>
+                    <span className="font-bold text-blue-700">{currentReport?.testType}</span>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <h3 className="text-sm font-bold text-blue-600 uppercase flex items-center gap-2">
-                    <Send size={14} className="no-print" />
-                    Executive Summary
-                  </h3>
-                  <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg italic text-blue-900">
+                  <h3 className="text-xs font-bold text-blue-600 uppercase">Executive Summary</h3>
+                  <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg italic text-blue-900 text-sm">
                     {currentReport?.summary}
                   </div>
                 </div>
 
-                <div className="prose prose-blue max-w-none text-gray-800 whitespace-pre-wrap leading-relaxed">
+                <div className="prose prose-blue max-w-none text-gray-800 whitespace-pre-wrap leading-relaxed text-sm">
                   {currentReport?.fullReport.split('\n').map((line, idx) => {
-                    if (line.startsWith('# ')) return <h2 key={idx} className="text-2xl font-bold border-b-2 border-gray-100 pb-2 mt-8 mb-4">{line.substring(2)}</h2>;
-                    if (line.startsWith('## ')) return <h3 key={idx} className="text-xl font-bold mt-6 mb-3 text-blue-900">{line.substring(3)}</h3>;
-                    if (line.startsWith('### ')) return <h4 key={idx} className="text-lg font-semibold mt-4 mb-2 text-gray-700 uppercase tracking-wide">{line.substring(4)}</h4>;
-                    return <p key={idx} className="mb-4">{line}</p>;
+                    if (line.startsWith('# ')) return <h2 key={idx} className="text-xl font-bold border-b border-gray-100 pb-2 mt-6 mb-3">{line.substring(2)}</h2>;
+                    if (line.startsWith('## ')) return <h3 key={idx} className="text-lg font-bold mt-5 mb-2 text-blue-900">{line.substring(3)}</h3>;
+                    if (line.startsWith('### ')) return <h4 key={idx} className="text-md font-semibold mt-4 mb-2 text-gray-700 uppercase tracking-wide">{line.substring(4)}</h4>;
+                    return <p key={idx} className="mb-3">{line}</p>;
                   })}
                 </div>
 
                 <div className="pt-16 mt-16 border-t border-gray-200 grid grid-cols-2">
                    <div className="space-y-1">
-                      <div className="h-1 bg-gray-400 w-48 mb-2"></div>
+                      <div className="h-0.5 bg-gray-400 w-40 mb-2"></div>
                       <p className="text-sm font-bold text-gray-900">Authorized Signatory</p>
                       <p className="text-xs text-gray-500">Clinical Neuropsychologist</p>
                    </div>
                    <div className="text-right text-xs text-gray-400 flex flex-col justify-end">
-                      <p>Electronic Document ID: {currentReport?.id}</p>
-                      <p>PsychLab Version 2.4.0-Beta</p>
+                      <p>Electronic ID: {currentReport?.id}</p>
                    </div>
                 </div>
               </div>
@@ -426,8 +383,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
         </div>
       </main>
 
-      <footer className="py-6 text-center text-sm text-gray-400 no-print border-t border-gray-100">
-        &copy; {new Date().getFullYear()} PsychLab Clinical Systems. Confidential Medical Information.
+      <footer className="py-6 text-center text-xs text-gray-400 no-print border-t border-gray-100">
+        &copy; {new Date().getFullYear()} PsychLab Clinical Systems. Confidential Medical Record.
       </footer>
     </div>
   );
