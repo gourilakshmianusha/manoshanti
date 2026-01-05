@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { LogOut, FileText, Send, Loader2, User, Activity, History, Printer } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LogOut, FileText, Send, Loader2, User, Activity, History, Printer, FileDown, CheckCircle } from 'lucide-react';
 import { AssessmentTest, PatientDetails, User as UserType, LabReport } from '../types';
 import { generateReport } from '../geminiService';
 
@@ -22,6 +22,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentReport, setCurrentReport] = useState<LabReport | null>(null);
   const [reportHistory, setReportHistory] = useState<LabReport[]>([]);
+
+  // Effect to change document title so "Save as PDF" uses the correct filename
+  useEffect(() => {
+    if (currentReport) {
+      const safeName = currentReport.patient.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const safeTest = currentReport.testType.replace(/[^a-z0-9]/gi, '_');
+      document.title = `Report_${safeName}_${safeTest}`;
+    } else {
+      document.title = "PsychLab Report Generator";
+    }
+    
+    // Cleanup title on unmount
+    return () => {
+      document.title = "PsychLab Report Generator";
+    };
+  }, [currentReport]);
 
   const handleGenerate = async () => {
     if (!patient.name || !patient.age) {
@@ -49,8 +65,72 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
     }
   };
 
-  const handlePrint = () => {
+  const handlePrintPDF = () => {
+    if (!currentReport) return;
     window.print();
+  };
+
+  const handleDownloadWord = () => {
+    if (!currentReport) return;
+
+    const safeName = currentReport.patient.name.replace(/\s+/g, '_');
+    const filename = `Report_${safeName}_${currentReport.testType}.doc`;
+    
+    const reportHtml = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head><meta charset='utf-8'><title>${currentReport.testType} Report</title>
+      <style>
+        body { font-family: 'Arial', sans-serif; line-height: 1.6; padding: 40px; }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
+        .patient-info { background: #f4f4f4; padding: 15px; border: 1px solid #ddd; margin-bottom: 20px; }
+        h1 { font-size: 24pt; margin-bottom: 5px; }
+        h2 { font-size: 18pt; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 25px; }
+        h3 { font-size: 14pt; color: #34495e; margin-top: 15px; }
+        p { margin-bottom: 10px; }
+        .summary { font-style: italic; background: #eef7ff; padding: 10px; border-left: 4px solid #3498db; }
+      </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>PSYCHOLOGICAL ASSESSMENT LABORATORY</h1>
+          <p>Department of Clinical Psychology & Neurodevelopment</p>
+        </div>
+        
+        <div class="patient-info">
+          <p><strong>Patient Name:</strong> ${currentReport.patient.name}</p>
+          <p><strong>Age/Gender:</strong> ${currentReport.patient.age} / ${currentReport.patient.gender}</p>
+          <p><strong>Assessment Tool:</strong> ${currentReport.testType}</p>
+          <p><strong>Date:</strong> ${currentReport.date}</p>
+        </div>
+
+        <h2>EXECUTIVE SUMMARY</h2>
+        <div class="summary">${currentReport.summary}</div>
+
+        ${currentReport.fullReport.split('\n').map(line => {
+          if (line.startsWith('# ')) return `<h1>${line.substring(2)}</h1>`;
+          if (line.startsWith('## ')) return `<h2>${line.substring(3)}</h2>`;
+          if (line.startsWith('### ')) return `<h3>${line.substring(4)}</h3>`;
+          if (line.trim() === '') return '<br/>';
+          return `<p>${line}</p>`;
+        }).join('')}
+
+        <div style="margin-top: 50px; border-top: 1px solid #000; padding-top: 10px;">
+          <p><strong>Authorized Signatory</strong></p>
+          <p>Clinical Neuropsychologist</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff', reportHtml], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const resetForm = () => {
@@ -147,7 +227,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
                 </select>
               </div>
 
-              {/* REORDERED: Scores come first now */}
               <div>
                 <label className="block text-xs font-bold text-blue-600 uppercase mb-1">Raw Scores / Further details</label>
                 <textarea
@@ -255,25 +334,33 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
           ) : (
             <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden report-container">
               {/* Report Header Controls */}
-              <div className="bg-gray-50 border-b border-gray-100 px-8 py-4 flex justify-between items-center no-print">
+              <div className="bg-gray-50 border-b border-gray-100 px-8 py-4 flex flex-wrap justify-between items-center gap-4 no-print">
                 <div className="flex items-center gap-2">
+                  <CheckCircle className="text-green-500" size={18} />
                   <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
-                    Draft Ready
+                    Clinical Draft Finalized
                   </span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button 
-                    onClick={handlePrint}
+                    onClick={handleDownloadWord}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition flex items-center gap-2 text-sm shadow-sm"
+                  >
+                    <FileDown size={18} />
+                    Download Word (.doc)
+                  </button>
+                  <button 
+                    onClick={handlePrintPDF}
                     className="bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 font-medium px-4 py-2 rounded-lg transition flex items-center gap-2 text-sm"
                   >
                     <Printer size={18} />
-                    Print / Save PDF
+                    Save as PDF
                   </button>
                 </div>
               </div>
 
-              {/* Actual Report Document */}
-              <div className="p-10 md:p-16 space-y-8">
+              {/* Actual Report Document Container - Target for Print */}
+              <div id="report-content" className="p-10 md:p-16 space-y-8 bg-white">
                 {/* Clinic Letterhead Simulation */}
                 <div className="text-center pb-8 border-b-2 border-blue-100 relative">
                   <div className="absolute top-0 left-0 text-gray-300 pointer-events-none uppercase tracking-[0.2em] font-black text-4xl opacity-5 transform -rotate-12 translate-y-12">
@@ -303,10 +390,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
                   </div>
                 </div>
 
-                {/* Short Preview / Executive Summary */}
-                <div className="space-y-2 no-print">
+                {/* Executive Summary */}
+                <div className="space-y-2">
                   <h3 className="text-sm font-bold text-blue-600 uppercase flex items-center gap-2">
-                    <Send size={14} />
+                    <Send size={14} className="no-print" />
                     Executive Summary
                   </h3>
                   <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg italic text-blue-900">
@@ -328,7 +415,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
                 <div className="pt-16 mt-16 border-t border-gray-200 grid grid-cols-2">
                    <div className="space-y-1">
                       <div className="h-1 bg-gray-400 w-48 mb-2"></div>
-                      <p className="text-sm font-bold">Authorized Signatory</p>
+                      <p className="text-sm font-bold text-gray-900">Authorized Signatory</p>
                       <p className="text-xs text-gray-500">Clinical Neuropsychologist</p>
                    </div>
                    <div className="text-right text-xs text-gray-400 flex flex-col justify-end">
