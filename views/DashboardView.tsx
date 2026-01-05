@@ -23,7 +23,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
   const [currentReport, setCurrentReport] = useState<LabReport | null>(null);
   const [reportHistory, setReportHistory] = useState<LabReport[]>([]);
 
-  // Effect to change document title so "Save as PDF" uses the correct filename
   useEffect(() => {
     if (currentReport) {
       const safeName = currentReport.patient.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
@@ -32,8 +31,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
     } else {
       document.title = "PsychLab Report Generator";
     }
-    
-    // Cleanup title on unmount
     return () => {
       document.title = "PsychLab Report Generator";
     };
@@ -41,7 +38,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
 
   const handleGenerate = async () => {
     if (!patient.name || !patient.age) {
-      alert("Please fill in at least the name and age.");
+      alert("Please provide the Patient Name and Age at minimum.");
       return;
     }
 
@@ -58,8 +55,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
       };
       setCurrentReport(newReport);
       setReportHistory(prev => [newReport, ...prev]);
-    } catch (err) {
-      alert("Failed to generate report. Please try again.");
+    } catch (err: any) {
+      console.error("Detailed Generation Error:", err);
+      
+      let errorMsg = "Failed to generate report.";
+      if (err.message?.includes("API_KEY")) {
+        errorMsg += " API Key is missing or invalid. If running locally, ensure process.env.API_KEY is defined.";
+      } else if (err.message?.includes("safety")) {
+        errorMsg += " The content was flagged by safety filters. Try rephrasing the observations.";
+      } else {
+        errorMsg += " Please check your internet connection or console for more details.";
+      }
+      
+      alert(errorMsg);
     } finally {
       setIsGenerating(false);
     }
@@ -147,7 +155,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Header */}
       <header className="bg-white border-b border-gray-200 py-4 px-6 sticky top-0 z-30 flex justify-between items-center no-print">
         <div className="flex items-center gap-2 text-blue-600">
           <FileText size={24} />
@@ -169,7 +176,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
       </header>
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Input Form Column */}
         <div className="lg:col-span-4 space-y-6 no-print">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center gap-2 mb-6 pb-2 border-b border-gray-100">
@@ -285,7 +291,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
             </div>
           </div>
 
-          {/* History Widget */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 overflow-hidden">
              <div className="flex items-center gap-2 mb-4">
               <History className="text-gray-400" size={18} />
@@ -313,7 +318,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
           </div>
         </div>
 
-        {/* Report Preview Column */}
         <div className="lg:col-span-8">
           {!currentReport && !isGenerating ? (
             <div className="h-full min-h-[600px] flex flex-col items-center justify-center text-center p-12 bg-white rounded-2xl border-2 border-dashed border-gray-200 text-gray-400">
@@ -328,12 +332,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
               <Loader2 className="animate-spin text-blue-500 mb-6" size={48} />
               <h3 className="text-xl font-semibold text-gray-800">Generating Clinical Report</h3>
               <p className="max-w-md mt-4 text-gray-600 leading-relaxed">
-                Gemini is analyzing the behavioral observations and test scores for {patient.name} to craft a professional laboratory report...
+                Gemini Pro is performing a deep analysis of the clinical observations and scores for {patient.name}...
               </p>
             </div>
           ) : (
             <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden report-container">
-              {/* Report Header Controls */}
               <div className="bg-gray-50 border-b border-gray-100 px-8 py-4 flex flex-wrap justify-between items-center gap-4 no-print">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="text-green-500" size={18} />
@@ -359,9 +362,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
                 </div>
               </div>
 
-              {/* Actual Report Document Container - Target for Print */}
               <div id="report-content" className="p-10 md:p-16 space-y-8 bg-white">
-                {/* Clinic Letterhead Simulation */}
                 <div className="text-center pb-8 border-b-2 border-blue-100 relative">
                   <div className="absolute top-0 left-0 text-gray-300 pointer-events-none uppercase tracking-[0.2em] font-black text-4xl opacity-5 transform -rotate-12 translate-y-12">
                     CONFIDENTIAL CLINICAL RECORD
@@ -370,7 +371,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
                   <p className="text-sm text-gray-500 mt-1 italic font-medium">Department of Clinical Psychology & Neurodevelopment</p>
                 </div>
 
-                {/* Patient Profile */}
                 <div className="grid grid-cols-2 gap-y-4 bg-gray-50 p-6 rounded-xl border border-gray-100">
                   <div>
                     <span className="block text-xs font-bold text-gray-400 uppercase mb-0.5">Patient Name</span>
@@ -390,7 +390,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
                   </div>
                 </div>
 
-                {/* Executive Summary */}
                 <div className="space-y-2">
                   <h3 className="text-sm font-bold text-blue-600 uppercase flex items-center gap-2">
                     <Send size={14} className="no-print" />
@@ -401,7 +400,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
                   </div>
                 </div>
 
-                {/* Main Content */}
                 <div className="prose prose-blue max-w-none text-gray-800 whitespace-pre-wrap leading-relaxed">
                   {currentReport?.fullReport.split('\n').map((line, idx) => {
                     if (line.startsWith('# ')) return <h2 key={idx} className="text-2xl font-bold border-b-2 border-gray-100 pb-2 mt-8 mb-4">{line.substring(2)}</h2>;
@@ -411,7 +409,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onLogout }) => {
                   })}
                 </div>
 
-                {/* Footer Signature */}
                 <div className="pt-16 mt-16 border-t border-gray-200 grid grid-cols-2">
                    <div className="space-y-1">
                       <div className="h-1 bg-gray-400 w-48 mb-2"></div>
