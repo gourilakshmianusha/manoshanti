@@ -1,0 +1,5 @@
+{
+  "name": "PsychLab Report Generator",
+  "description": "A professional clinical report generation tool for psychologists and pediatricians, featuring support for MISIC, CAT, VSMS, and other specialized diagnostic assessments.",
+  "requestFramePermissions": []
+}
